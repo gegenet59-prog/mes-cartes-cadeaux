@@ -1,0 +1,25 @@
+{
+  "name": "Mes cartes cadeaux",
+  "short_name": "Cartes cadeaux",
+  "description": "Range tes cartes et bons cadeaux et sois prévenu avant la date de fin.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f1e7",
+  "theme_color": "#14403a",
+  "icons": [
+    { "src": "icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icone-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icone-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "share_target": {
+    "action": "./partage",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [ { "name": "image", "accept": ["image/*"] } ]
+    }
+  }
+}
