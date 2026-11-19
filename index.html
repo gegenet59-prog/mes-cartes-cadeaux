@@ -59,6 +59,18 @@
   .ticket .delai { font-size: .88rem; color: var(--doux); }
   .ticket.bientot .delai { color: var(--rouge); font-weight: 600; }
   .ticket .montant { font-weight: 700; font-size: 1.1rem; white-space: nowrap; }
+  /* Groupes d'une même enseigne */
+  .groupe { background: #efe7d4; border: 1.5px solid var(--trait); border-radius: var(--rayon); padding: 6px; }
+  .groupe-tete { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 8px 8px 8px 10px; }
+  .groupe-tete .chevron { font-size: 1.2rem; color: var(--doux); transition: transform .15s; width: 20px; text-align: center; flex: none; }
+  .groupe.replie .chevron { transform: rotate(-90deg); }
+  .groupe-tete .infos { flex: 1; min-width: 0; }
+  .groupe-tete .nom { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .groupe-tete .delai { font-size: .88rem; color: var(--doux); }
+  .groupe-tete.bientot .delai { color: var(--rouge); font-weight: 600; }
+  .groupe-tete .montant { font-weight: 700; font-size: 1.1rem; white-space: nowrap; }
+  .groupe-corps { display: grid; gap: 8px; margin-top: 4px; }
+  .groupe.replie .groupe-corps { display: none; }
   .vide { text-align: center; color: var(--doux); padding: 34px 30px; }
   .vide .gros { font-size: 3rem; display: block; margin-bottom: 6px; }
 
@@ -373,10 +385,46 @@ async function afficherAccueil() {
       (c.montant ? '<span class="montant">' + euros(c.montant) + '</span>' : '') + '</button>';
   };
   const finies = cartes.filter(c => rang(c) === 2);
-  zone.innerHTML = (actives.length ? '<h2>À utiliser</h2><div class="liste">' + actives.map(ticket).join('') + '</div>' : '') +
+
+  // Regroupement : 2 cartes ou plus de la même enseigne (majuscules et accents ignorés) forment un groupe
+  const cle = c => sansAccent(c.enseigne || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const effectifs = {};
+  actives.forEach(c => { const k = cle(c); if (k) effectifs[k] = (effectifs[k] || 0) + 1; });
+  const replies = piles();
+  const dejaVu = new Set();
+  const lignes = actives.map(c => {
+    const k = cle(c);
+    if (!k || effectifs[k] < 2) return ticket(c);
+    if (dejaVu.has(k)) return '';
+    dejaVu.add(k);
+    const membres = actives.filter(x => cle(x) === k);       // déjà triés : le plus urgent en premier
+    const somme = membres.reduce((t, x) => t + (x.montant || 0), 0);
+    const e = etatCarte(membres[0]);
+    return '<div class="groupe' + (replies.has(k) ? ' replie' : '') + '" data-cle="' + k + '">' +
+      '<button class="groupe-tete ' + e.classe + '" aria-expanded="' + !replies.has(k) + '"><span class="chevron">▾</span>' +
+      '<span class="infos"><div class="nom">' + echappe(nomGroupe(membres)) + ' · ' + membres.length + ' cartes</div><div class="delai">' + echappe(e.texte) + '</div></span>' +
+      (somme ? '<span class="montant">' + euros(somme) + '</span>' : '') + '</button>' +
+      '<div class="groupe-corps">' + membres.map(ticket).join('') + '</div></div>';
+  }).join('');
+
+  zone.innerHTML = (actives.length ? '<h2>À utiliser</h2><div class="liste">' + lignes + '</div>' : '') +
     (finies.length ? '<h2>Utilisées ou expirées</h2><div class="liste">' + finies.map(ticket).join('') + '</div>' : '');
 }
-$('zoneListe').addEventListener('click', e => { const t = e.target.closest('.ticket'); if (t) ouvrirFiche(t.dataset.id); });
+// Nom affiché pour le groupe : l'écriture qui commence par une majuscule, sinon la première
+const nomGroupe = membres => { const noms = membres.map(x => x.enseigne.trim()); return noms.find(n => /^[A-ZÀ-ÝÉ]/.test(n)) || noms[0]; };
+// Groupes repliés : mémorisés sur ce téléphone (simple confort, sans importance si ça échoue)
+function piles() { try { return new Set(JSON.parse(localStorage.getItem('groupes-replies') || '[]')); } catch (e) { return new Set(); } }
+function retenirPiles(ensemble) { try { localStorage.setItem('groupes-replies', JSON.stringify([...ensemble])); } catch (e) { /* tant pis */ } }
+$('zoneListe').addEventListener('click', e => {
+  const tete = e.target.closest('.groupe-tete');
+  if (tete) {
+    const g = tete.parentElement, replie = g.classList.toggle('replie'), ens = piles();
+    replie ? ens.add(g.dataset.cle) : ens.delete(g.dataset.cle);
+    tete.setAttribute('aria-expanded', String(!replie)); retenirPiles(ens);
+    return;
+  }
+  const t = e.target.closest('.ticket'); if (t) ouvrirFiche(t.dataset.id);
+});
 
 /* ---------------- Formulaire ---------------- */
 let enCours = null;   // carte en cours de saisie
